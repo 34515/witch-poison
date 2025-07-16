@@ -1,0 +1,237 @@
+/* ===================================================================
+   style.css — 全局样式 + 大厅 (lobby) + 游戏 (game) UI
+   =================================================================== */
+
+/* —— 全局重置 & 布局 —— */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  /* 默认白底，移动优先竖排居中 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #fafafa;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: #222;
+  text-align: center;
+  line-height: 1.4;
+  padding: 1rem;
+}
+
+/* 链接去掉自动下划线 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ===================================================================
+   大厅页 (lobby.html) 样式
+   =================================================================== */
+
+h2 {
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+}
+
+form {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+label {
+  font-size: 1rem;
+  text-align: left;
+}
+
+label select {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 2px solid #333;
+  border-radius: 6px;
+  background: #fff;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 2px solid #333;
+  border-radius: 6px;
+  background: #fff;
+}
+
+button {
+  font-size: 1rem;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 0 0 2px #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #eee;
+}
+
+#joinBtn, #createBtn {
+  width: 100%;
+}
+
+small {
+  display: block;
+  margin-top: 0.5rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+/* ===================================================================
+   游戏页 (game.html) 样式
+   =================================================================== */
+
+/* 棋盘几何参数（可由 JS 设置 --cols） */
+:root {
+  --cell: 6rem;   /* 每格宽高 */
+  --gap: 4px;     /* 网格间距 */
+  --line: 4px;    /* 边框线宽 */
+}
+
+h2 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  font-size: 1rem;
+  margin: 0.4rem 0;
+}
+
+#status {
+  margin-top: 0.6rem;
+  font-size: 1rem;
+  min-height: 1.2em;
+}
+
+/* 外层棋盘容器：黑-白-黑 三层边框 */
+#board {
+  /* JS 会设定 --cols */
+  display: grid;
+  place-items: center;
+  background: #000;                /* 最外黑 */
+  padding: var(--line);
+  /* 中间白 + 内层黑 */
+  box-shadow:
+    0 0 0 var(--line) #fff,
+    0 0 0 calc(2 * var(--line)) #000;
+  margin-top: 1rem;
+}
+
+/* 内层格子区域 */
+#foodPool {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap);
+  background: #fff;
+}
+
+/* 每个格子按钮：八条 inset 边线（黑-白-黑） */
+#foodPool button {
+  all: unset;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  font-size: 2.6rem;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset var(--line) 0 0 #000,
+    inset calc(-1 * var(--line)) 0 0 #000,
+    inset 0 var(--line) 0 #000,
+    inset 0 calc(-1 * var(--line)) 0 #000,
+    inset calc(2 * var(--line)) 0 0 #fff,
+    inset calc(-2 * var(--line)) 0 0 #fff,
+    inset 0 calc(2 * var(--line)) 0 #fff,
+    inset 0 calc(-2 * var(--line)) 0 #fff;
+}
+
+/* 弹窗遮罩 & 对话框 */
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;           /* JS 控制显示/隐藏 */
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#dialog {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.6rem 2.2rem;
+  min-width: 14rem;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  align-items: center;
+}
+
+#dialog h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+#dialog .main {
+  padding: 0.55rem 1.6rem;
+  font-size: 1rem;
+  border: 2px solid #000;
+  border-radius: 8px;
+  background: #eee;
+  cursor: pointer;
+}
+
+#dialog .close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.6rem;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* ===================================================================
+   音频元素隐藏（如果有 <audio> 标签） & 其余小补丁
+   =================================================================== */
+audio {
+  display: none;
+}
+/* 防止高 DPI 时模糊 */
+img, button {
+  image-rendering: crisp-edges;
+}
+

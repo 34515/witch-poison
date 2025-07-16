@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>女巫的毒药 —— 双人对弈</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+
+  <!-- 本地 Socket.IO 客户端 -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- CDN 脚本（含 SRI 校验） -->
+  <script
+    src="https://cdn.socket.io/4.6.1/socket.io.min.js"
+    integrity="sha384‑KA7mODwgQGmeRC6Xre3hJO+Zxpan0auVh4Czdqbg81DKJ3bZZYVmP+y4F31x4OL"
+    crossorigin="anonymous">
+  </script>
+  <!-- 兜底：如果 io 仍未定义，就再次注入无 SRI 的 CDN -->
+  <script>
+    if (typeof io === 'undefined') {
+      const fallback = document.createElement('script');
+      fallback.src = 'https://cdn.socket.io/4.6.1/socket.io.min.js';
+      document.head.appendChild(fallback);
+    }
+  </script>
+
+  <style>
+    html, body {
+      height:100%; margin:0;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:flex-start;
+      font-family:"Segoe UI",system-ui;
+      text-align:center; background:#f9f9f9;
+    }
+    h2 { margin:1rem 0; }
+    #status { margin:.5rem 0 1rem; font-size:1rem; color:#333; }
+
+    :root { --cell:6rem; --gap:4px; --border:3px; }
+    #board {
+      --cols:{{ board_size }};
+      display:grid; place-items:center;
+      background:#000; padding:var(--border);
+      box-shadow:
+        0 0 0 var(--border) #fff,
+        0 0 0 calc(2*var(--border)) #000;
+      margin-bottom:1rem;
+    }
+    #foodPool {
+      display:grid; background:#fff;
+      grid-template-columns:repeat(var(--cols),var(--cell));
+      grid-auto-rows:var(--cell); gap:var(--gap);
+    }
+    #foodPool button {
+      all:unset; cursor:pointer;
+      width:100%; height:100%; font-size:2.4rem;
+      display:flex; align-items:center; justify-content:center;
+      box-sizing:border-box;
+      box-shadow:
+        inset var(--border) 0 0 #000,
+        inset calc(-1*var(--border)) 0 0 #000,
+        inset 0 var(--border) 0 #000,
+        inset 0 calc(-1*var(--border)) 0 #000,
+        inset calc(2*var(--border)) 0 0 #fff,
+        inset calc(-2*var(--border)) 0 0 #fff,
+        inset 0 calc(2*var(--border)) 0 #fff,
+        inset 0 calc(-2*var(--border)) 0 #fff;
+    }
+
+    #overlay {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.6);
+      display:none; align-items:center; justify-content:center;
+      z-index:999;
+    }
+    #dialog {
+      background:#fff; border-radius:12px;
+      padding:1.6rem 2rem; min-width:16rem;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3);
+      position:relative; text-align:center;
+    }
+    #dialog h3 { margin:0 0 1rem; font-size:1.2rem; }
+    #dialog .btn {
+      padding:.5rem 1.2rem; font-size:1rem;
+      background:#eee; border:2px solid #333;
+      border-radius:6px; cursor:pointer;
+    }
+    #dialog .close {
+      position:absolute; top:.5rem; right:.6rem;
+      background:transparent; border:none;
+      font-size:1.2rem; cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>女巫的毒药 —— 双人对弈</h2>
+  <p>
+    房间号：<strong id="roomId">{{ room }}</strong>
+    <button class="btn" onclick="navigator.clipboard.writeText('{{ room }}')">复制</button>
+  </p>
+  <p>棋盘尺寸：{{ board_size }} × {{ board_size }}</p>
+  <div id="status">正在连接…</div>
+  <div id="board"><div id="foodPool"></div></div>
+
+  <div id="overlay" onclick="hideDialog(event)">
+    <div id="dialog" onclick="event.stopPropagation()">
+      <button class="close" onclick="hideDialog()">✖</button>
+      <h3 id="dialogMsg">提示</h3>
+      <button id="dialogBtn" class="btn" style="display:none" onclick="location.href='/'">返回大厅</button>
+    </div>
+  </div>
+
+  <script>
+    const statusTxt = document.getElementById('status'),
+          pool      = document.getElementById('foodPool'),
+          overlay   = document.getElementById('overlay'),
+          dialogMsg = document.getElementById('dialogMsg'),
+          dialogBtn = document.getElementById('dialogBtn');
+
+    const room      = "{{ room }}",
+          boardSize = {{ board_size }};
+    document.documentElement.style.setProperty('--cols', boardSize);
+
+    const animals = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮'];
+    let myIcon, oppIcon;
+    ;(()=>{
+      // 页面加载时先做一次随机，之后会被 update 中覆盖
+      const arr = animals.map(v=>[Math.random(),v])
+                         .sort((a,b)=>a[0]-b[0])
+                         .map(x=>x[1]);
+      [myIcon, oppIcon] = [arr[0], arr[1]];
+    })();
+
+    let playerIndex=null, myPoison=null, chosen=false;
+    const myEaten=new Set(), opEaten=new Set();
+
+    let socket;
+    if (typeof io !== "undefined") {
+      socket = io({ transports:['websocket'] });
+
+      socket.on('connect', ()=>{
+        statusTxt.innerText = '✅ 已连接，正在加入房间…';
+        socket.emit('join', { room, size: boardSize });
+      });
+      socket.on('joined', d => {
+        playerIndex = d.playerIndex;
+        statusTxt.innerText = `你是玩家 #${playerIndex+1}，请先选定毒药`;
+      });
+
+      // 保留原来 render 绑定
+      socket.on('update', render);
+
+      // —— 新增：在 update 事件里优先覆盖图标，再渲染一次 —— 
+      socket.on('update', d => {
+        if (d.avatars) {
+          myIcon  = d.avatars[playerIndex];
+          oppIcon = d.avatars[1 - playerIndex];
+        }
+        render(d);
+      });
+
+      socket.on('error', d => showDialog('❌ ' + d.msg));
+      socket.on('game_over', d => {
+        const isWin = socket.id === d.winner;
+        showDialog(isWin ? '🎉 有实力，轻松拿下' : '💀 菜就多练', true);
+      });
+    } else {
+      statusTxt.innerText = '❌ Socket.IO 客户端加载失败';
+      showDialog('🚫 无法连接服务器，可能未启动 Flask 或网络问题', true);
+    }
+
+    function render(g) {
+      pool.innerHTML = '';
+      g.food.forEach((cell, idx) => {
+        const btn = document.createElement('button');
+        if (cell === '💋') {
+          btn.textContent = myEaten.has(idx) ? myIcon
+                          : opEaten.has(idx) ? oppIcon
+                          : '💋';
+        } else {
+          btn.textContent = cell;
+        }
+        btn.onclick = () => move(idx);
+        pool.appendChild(btn);
+      });
+      statusTxt.innerText =
+        `房间玩家数：${g.total_players} ｜ ` +
+        (g.turn_idx === playerIndex ? '轮到你' : '等待对手');
+    }
+
+    function move(idx) {
+      if (!chosen) {
+        socket.emit('set_poison', { room, index: idx });
+        myPoison  = idx;
+        chosen    = true;
+        showDialog('✅ 毒药已设定，继续游戏');
+        return;
+      }
+      if (idx === myPoison) {
+        showDialog('❌ 不可以，这是你自己的毒药');
+        return;
+      }
+      myEaten.add(idx);
+      socket.emit('eat', { room, index: idx });
+    }
+
+    function showDialog(msg, withBtn = false) {
+      dialogMsg.innerText   = msg;
+      dialogBtn.style.display = withBtn ? 'block' : 'none';
+      overlay.style.display   = 'flex';
+    }
+    function hideDialog(e) {
+      if (e && e.target !== e.currentTarget) return;
+      overlay.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

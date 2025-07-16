@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>女巫的毒药 🎲 大厅</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- 全局样式 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <style>
+    /* —— 全页面垂直中心 & 移动优先 —— */
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;    /* 垂直居中 */
+      align-items: center;        /* 水平居中 */
+      padding: 1rem;
+      box-sizing: border-box;
+      background: #fafafa;
+      font-family: "Segoe UI", sans-serif;
+      text-align: center;
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: 1.6rem;
+    }
+
+    form {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      font-size: 1rem;
+    }
+    label select {
+      margin-top: .5rem;
+      width: 100%;
+      padding: .5rem;
+      font-size: 1rem;
+      border: 2px solid #333;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: .5rem;
+      font-size: 1rem;
+      border: 2px solid #333;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+
+    button {
+      font-size: 1rem;
+      padding: .6rem;
+      border: none;
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 0 0 2px #333;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    button:hover {
+      background: #eee;
+    }
+
+    /* “加入房间” 与 “创建房间” 同宽 */
+    #createBtn, #joinBtn {
+      width: 100%;
+    }
+
+    /* 简单提示文字 */
+    small {
+      display: block;
+      margin-top: .5rem;
+      color: #666;
+      font-size: .85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>女巫的毒药 🎲 大厅</h2>
+
+  <!-- 选择棋盘尺寸 & 创建房间 -->
+  <form action="{{ url_for('create') }}" method="get">
+    <label>
+      棋盘尺寸
+      <select name="size">
+        <option value="3">3 × 3</option>
+        <option value="4">4 × 4</option>
+        <option value="5">5 × 5</option>
+      </select>
+    </label>
+    <button id="createBtn" type="submit">⚡ 创建房间</button>
+  </form>
+
+  <!-- 输入房号 & 加入房间 -->
+  <form action="{{ url_for('game') }}" method="get" onsubmit="return validateRoom()">
+    <input
+      id="roomInput"
+      name="room"
+      type="text"
+      placeholder="输入 3 位数字房号"
+      maxlength="3"
+      required
+    />
+    <button id="joinBtn" type="submit">🚪 加入房间</button>
+    <small>（房号由房主在创建后复制给你）</small>
+  </form>
+
+  <script>
+    function validateRoom() {
+      const v = document.getElementById('roomInput').value.trim();
+      if (!/^\d{3}$/.test(v)) {
+        alert('房号必须是 3 位数字');
+        return false;
+      }
+      return true;
+    }
+  </script>
+
+</body>
+</html>
